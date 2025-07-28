@@ -36,26 +36,39 @@ public class AvroDeserializationSchema implements DeserializationSchema<SeaTunne
     private static final long serialVersionUID = -7907358485475741366L;
 
     private final SeaTunnelRowType rowType;
-    private final AvroToRowConverter converter;
+    private AvroToRowConverter converter;
     private final CatalogTable catalogTable;
+    private final String avroContent;
 
     public AvroDeserializationSchema(CatalogTable catalogTable) {
         this.catalogTable = catalogTable;
         this.rowType = catalogTable.getSeaTunnelRowType();
-        this.converter = new AvroToRowConverter(rowType);
+        this.avroContent = catalogTable.getOptions().get("avro_schema");
+        if(null != this.avroContent){
+            this.converter = new AvroToRowConverter(this.avroContent);
+        }{
+            this.converter = new AvroToRowConverter(rowType);
+        }
     }
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
-        BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(message, null);
-        GenericRecord record = this.converter.getReader().read(null, decoder);
-        SeaTunnelRow seaTunnelRow = converter.converter(record, rowType);
-        Optional<TablePath> tablePath =
-                Optional.ofNullable(catalogTable).map(CatalogTable::getTablePath);
-        if (tablePath.isPresent()) {
-            seaTunnelRow.setTableId(tablePath.toString());
+        if (message == null || message.length == 0) {
+            throw new IOException("Input message is null or empty");
         }
-        return seaTunnelRow;
+        try {
+            BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(message, null);
+            GenericRecord record = this.converter.getReader().read(null, decoder);
+            SeaTunnelRow seaTunnelRow = converter.converter(record, rowType);
+            Optional<TablePath> tablePath =
+                    Optional.ofNullable(catalogTable).map(CatalogTable::getTablePath);
+            if (tablePath.isPresent()) {
+                seaTunnelRow.setTableId(tablePath.toString());
+            }
+            return seaTunnelRow;
+        } catch (Exception e) {
+            throw new IOException("Failed to deserialize Avro message", e);
+        }
     }
 
     @Override
