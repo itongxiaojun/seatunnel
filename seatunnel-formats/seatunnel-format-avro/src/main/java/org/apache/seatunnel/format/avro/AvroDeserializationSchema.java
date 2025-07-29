@@ -44,9 +44,9 @@ public class AvroDeserializationSchema implements DeserializationSchema<SeaTunne
         this.catalogTable = catalogTable;
         this.rowType = catalogTable.getSeaTunnelRowType();
         this.avroContent = catalogTable.getOptions().get("avro_schema");
-        if (null != this.avroContent){
+        if (null != this.avroContent) {
             this.converter = new AvroToRowConverter(this.avroContent);
-        }else{
+        } else {
             this.converter = new AvroToRowConverter(rowType);
         }
     }
